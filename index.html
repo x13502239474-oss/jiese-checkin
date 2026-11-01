@@ -864,14 +864,15 @@ function ensureAudio() {
   }
   return audioCtx;
 }
-function tone(freq, start, dur, type, gain) {
+function tone(freq, start, dur, type, gain, freqEnd) {
   const ctx = audioCtx;
   const osc = ctx.createOscillator();
   const g = ctx.createGain();
   osc.type = type || 'sine';
-  osc.frequency.value = freq;
+  osc.frequency.setValueAtTime(freq, start);
+  if (freqEnd) osc.frequency.exponentialRampToValueAtTime(freqEnd, start + dur);
   g.gain.setValueAtTime(0.0001, start);
-  g.gain.exponentialRampToValueAtTime(gain || 0.3, start + 0.02);
+  g.gain.exponentialRampToValueAtTime(gain || 0.5, start + 0.015);
   g.gain.exponentialRampToValueAtTime(0.0001, start + dur);
   osc.connect(g); g.connect(ctx.destination);
   osc.start(start); osc.stop(start + dur + 0.05);
@@ -881,20 +882,29 @@ function playChime(kind) {
   if (!ctx) return;
   const t = ctx.currentTime;
   if (kind === 'checkin') {
-    // 轻快双音「叮咚」
-    tone(880, t, 0.18, 'sine', 0.25);
-    tone(1318.5, t + 0.12, 0.25, 'sine', 0.25);
+    // 强烈双音「叮—咚」，叠加八度与低音
+    tone(880, t, 0.2, 'square', 0.5);
+    tone(1760, t, 0.2, 'sine', 0.3);
+    tone(1318.5, t + 0.13, 0.3, 'square', 0.5);
+    tone(440, t + 0.13, 0.3, 'triangle', 0.35);
   } else if (kind === 'milestone') {
-    // 上行三连音
-    tone(523.25, t, 0.2, 'triangle', 0.28);
-    tone(659.25, t + 0.13, 0.2, 'triangle', 0.28);
-    tone(783.99, t + 0.26, 0.35, 'triangle', 0.3);
-  } else if (kind === 'goal') {
-    // 胜利号角（更丰满）
-    [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => {
-      tone(f, t + i * 0.12, 0.35, 'triangle', 0.3);
+    // 上行三连音，每个音叠加低八度
+    [523.25, 659.25, 783.99].forEach((f, i) => {
+      const s = t + i * 0.14;
+      tone(f, s, 0.28, 'square', 0.5);
+      tone(f * 2, s, 0.28, 'sine', 0.25);
+      tone(f / 2, s, 0.28, 'triangle', 0.35);
     });
-    tone(1046.5, t + 0.5, 0.6, 'sine', 0.22);
+  } else if (kind === 'goal') {
+    // 胜利号角：四音上行 + 长尾，低音垫底
+    [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => {
+      const s = t + i * 0.12;
+      tone(f, s, 0.4, 'square', 0.5);
+      tone(f * 2, s, 0.4, 'sine', 0.25);
+    });
+    tone(261.63, t, 0.9, 'triangle', 0.4);
+    tone(1046.5, t + 0.5, 0.7, 'sine', 0.35);
+    tone(2093, t + 0.5, 0.7, 'sine', 0.2);
   }
 }
 
