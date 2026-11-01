@@ -1,0 +1,847 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>戒色打卡 · 自律者自由</title>
+<style>
+  :root {
+    --bg: #f5f7fa;
+    --card: #ffffff;
+    --primary: #4f7cff;
+    --primary-dark: #3a63d8;
+    --success: #22c58b;
+    --danger: #f05a5a;
+    --text: #1f2937;
+    --text-2: #6b7280;
+    --border: #e5e9f0;
+    --gold: #f5a623;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: "PingFang SC", "Microsoft YaHei", -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 24px 16px 60px;
+  }
+  .container { max-width: 760px; margin: 0 auto; }
+
+  header { text-align: center; margin-bottom: 24px; }
+  header h1 { font-size: 26px; letter-spacing: 2px; }
+  header p { color: var(--text-2); font-size: 13px; margin-top: 6px; }
+
+  /* ===== 主卡片 ===== */
+  .hero {
+    background: linear-gradient(135deg, #4f7cff 0%, #7a5cff 100%);
+    border-radius: 20px;
+    color: #fff;
+    padding: 36px 28px 30px;
+    text-align: center;
+    box-shadow: 0 10px 30px rgba(79,124,255,.28);
+    position: relative;
+    overflow: hidden;
+  }
+  .hero::before {
+    content: "";
+    position: absolute; inset: 0;
+    background: radial-gradient(circle at 85% 15%, rgba(255,255,255,.18), transparent 45%);
+    pointer-events: none;
+  }
+  .hero .label { font-size: 14px; opacity: .85; letter-spacing: 3px; }
+
+  /* 进度环 */
+  .ring-wrap { position: relative; width: 190px; height: 190px; margin: 10px auto 0; }
+  .ring-wrap svg { transform: rotate(-90deg); }
+  .ring-bg { fill: none; stroke: rgba(255,255,255,.22); stroke-width: 10; }
+  .ring-fg {
+    fill: none; stroke: #ffd66e; stroke-width: 10; stroke-linecap: round;
+    transition: stroke-dashoffset .8s cubic-bezier(.3,.8,.3,1);
+  }
+  .ring-center {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+  }
+  .ring-center .days { font-size: 64px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
+  .ring-center .days small { font-size: 16px; font-weight: 500; margin-left: 2px; }
+  .ring-center .goal-txt { font-size: 12px; opacity: .85; margin-top: 6px; }
+
+  .btn-goal {
+    margin-top: 10px; background: rgba(255,255,255,.18); border: 1px solid rgba(255,255,255,.35);
+    color: #fff; font-size: 12px; padding: 5px 16px; border-radius: 999px; cursor: pointer;
+  }
+  .btn-goal:hover { background: rgba(255,255,255,.3); }
+
+  .hero .quote { margin-top: 14px; font-size: 14px; opacity: .92; min-height: 22px; font-style: italic; }
+
+  .btn-checkin {
+    margin-top: 20px;
+    background: #fff;
+    color: var(--primary-dark);
+    border: none;
+    font-size: 17px;
+    font-weight: 700;
+    padding: 14px 52px;
+    border-radius: 999px;
+    cursor: pointer;
+    letter-spacing: 4px;
+    transition: transform .15s, box-shadow .15s;
+    box-shadow: 0 6px 18px rgba(0,0,0,.15);
+  }
+  .btn-checkin:hover { transform: translateY(-2px); box-shadow: 0 10px 24px rgba(0,0,0,.2); }
+  .btn-checkin:active { transform: scale(.97); }
+  .btn-checkin.done { background: rgba(255,255,255,.25); color: #fff; box-shadow: none; cursor: default; }
+
+  .btn-reset {
+    display: block; margin: 16px auto 0;
+    background: transparent; border: none;
+    color: rgba(255,255,255,.75); font-size: 12px;
+    cursor: pointer; text-decoration: underline;
+  }
+  .btn-reset:hover { color: #fff; }
+
+  /* ===== 统计行 ===== */
+  .stats {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;
+    margin-top: 16px;
+  }
+  .stat {
+    background: var(--card); border-radius: 14px; padding: 18px 12px;
+    text-align: center; border: 1px solid var(--border);
+  }
+  .stat .num { font-size: 26px; font-weight: 800; color: var(--primary); font-variant-numeric: tabular-nums; }
+  .stat .name { font-size: 12px; color: var(--text-2); margin-top: 4px; }
+
+  /* ===== 卡片通用 ===== */
+  .card {
+    background: var(--card); border-radius: 16px; padding: 22px;
+    margin-top: 16px; border: 1px solid var(--border);
+  }
+  .card h2 { font-size: 16px; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+  .card h2 .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--primary); }
+
+  /* ===== 日历 ===== */
+  .cal-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+  .cal-head .month { font-weight: 700; font-size: 15px; }
+  .cal-head button {
+    border: 1px solid var(--border); background: #fff; border-radius: 8px;
+    width: 30px; height: 30px; cursor: pointer; color: var(--text-2); font-size: 14px;
+  }
+  .cal-head button:hover { background: #f0f4ff; color: var(--primary); }
+  .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+  .cal-grid .wk { text-align: center; font-size: 11px; color: var(--text-2); padding: 4px 0; }
+  .cal-cell {
+    aspect-ratio: 1; display: flex; align-items: center; justify-content: center;
+    font-size: 13px; border-radius: 10px; background: #f3f5f9; color: var(--text-2);
+    position: relative; font-variant-numeric: tabular-nums;
+  }
+  .cal-cell.checked { background: var(--success); color: #fff; font-weight: 700; }
+  .cal-cell.today { outline: 2px solid var(--primary); outline-offset: -2px; }
+  .cal-cell.future { background: transparent; color: #cbd2dc; }
+  .cal-cell.empty { background: transparent; }
+  .cal-cell.relapsed { background: #fde8e8; color: var(--danger); }
+  .cal-cell .note-dot {
+    position: absolute; bottom: 3px; left: 50%; transform: translateX(-50%);
+    width: 4px; height: 4px; border-radius: 50%; background: currentColor; opacity: .8;
+  }
+
+  /* ===== 里程碑 ===== */
+  .milestone-list { display: flex; flex-direction: column; gap: 10px; }
+  .milestone {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 14px; border-radius: 12px; background: #f7f9fc;
+  }
+  .milestone .badge {
+    width: 38px; height: 38px; border-radius: 50%; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; background: #e8ecf3;
+  }
+  .milestone.achieved { background: linear-gradient(90deg, #fff7e8, #fdf3e0); }
+  .milestone.achieved .badge { background: var(--gold); }
+  .milestone .info { flex: 1; }
+  .milestone .info .t { font-size: 14px; font-weight: 600; }
+  .milestone .info .d { font-size: 12px; color: var(--text-2); margin-top: 2px; }
+  .milestone .state { font-size: 12px; color: var(--text-2); flex-shrink: 0; }
+  .milestone.achieved .state { color: var(--gold); font-weight: 700; }
+
+  /* ===== 诱因分析 ===== */
+  .reason-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .reason-row .rname { width: 88px; font-size: 13px; flex-shrink: 0; }
+  .reason-row .bar-bg { flex: 1; height: 20px; background: #f0f2f6; border-radius: 6px; overflow: hidden; }
+  .reason-row .bar {
+    height: 100%; border-radius: 6px;
+    background: linear-gradient(90deg, #ffb3b3, var(--danger));
+    transition: width .6s ease; min-width: 0;
+  }
+  .reason-row .rcount { width: 40px; text-align: right; font-size: 13px; color: var(--text-2); flex-shrink: 0; font-variant-numeric: tabular-nums; }
+  .reason-advice {
+    margin-top: 6px; padding: 12px 14px; border-radius: 10px;
+    background: #fff5f5; border-left: 3px solid var(--danger);
+    font-size: 13px; color: #8a3a3a; line-height: 1.7;
+  }
+
+  /* ===== 记录列表 ===== */
+  .log-list { max-height: 280px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
+  .log-item {
+    display: flex; justify-content: space-between; align-items: flex-start; gap: 10px;
+    font-size: 13px; padding: 10px 14px; background: #f7f9fc; border-radius: 10px;
+  }
+  .log-item .l-main { flex: 1; min-width: 0; }
+  .log-item .time { color: var(--text-2); font-variant-numeric: tabular-nums; font-size: 12px; }
+  .log-item .note { margin-top: 4px; color: var(--text); line-height: 1.5; word-break: break-word; }
+  .log-item .tag { font-size: 11px; padding: 2px 10px; border-radius: 999px; flex-shrink: 0; }
+  .log-item .tag.ok { background: #e3f8ef; color: var(--success); }
+  .log-item .tag.bad { background: #fde8e8; color: var(--danger); }
+  .log-item .reason-txt { font-size: 11px; color: var(--danger); margin-top: 2px; }
+  .empty-tip { text-align: center; color: var(--text-2); font-size: 13px; padding: 20px 0; }
+
+  /* ===== 数据管理 ===== */
+ { text-align: center; margin-top: 28px; color: #9aa3b2; font-size: 12px; line-height: 1.8; }
+
+  /* Toast */
+  .toast {
+    position: fixed; top: 24px; left: 50%; transform: translateX(-50%) translateY(-80px);
+    background: var(--success); color: #fff; padding: 12px 28px; border-radius: 999px;
+    font-size: 14px; font-weight: 600; box-shadow: 0 8px 24px rgba(34,197,139,.4);
+    transition: transform .35s cubic-bezier(.2,.9,.3,1.2); z-index: 99;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+
+  /* 弹窗通用 */
+  .modal-mask {
+    position: fixed; inset: 0; background: rgba(20,24,35,.45);
+    display: none; align-items: center; justify-content: center; z-index: 100; padding: 16px;
+  }
+  .modal-mask.show { display: flex; }
+  .modal {
+    background: #fff; border-radius: 16px; padding: 26px 24px; width: 340px; max-width: 100%;
+    max-height: 85vh; overflow-y: auto;
+  }
+  .modal h3 { font-size: 16px; margin-bottom: 8px; text-align: center; }
+  .modal .sub { font-size: 13px; color: var(--text-2); line-height: 1.7; margin-bottom: 16px; text-align: center; }
+  .modal .row { display: flex; gap: 10px; margin-top: 18px; }
+  .modal .row button { flex: 1; padding: 11px 0; border-radius: 10px; border: none; font-size: 14px; cursor: pointer; }
+  .modal .cancel { background: #f0f2f6; color: var(--text-2); }
+  .modal .confirm { background: var(--primary); color: #fff; font-weight: 600; }
+  .modal .confirm.danger { background: var(--danger); }
+
+  /* 心情选择 */
+  .mood-row { display: flex; justify-content: center; gap: 14px; margin: 6px 0 14px; }
+  .mood-btn {
+    width: 52px; height: 52px; border-radius: 50%; border: 2px solid var(--border);
+    background: #fff; font-size: 24px; cursor: pointer; transition: all .15s;
+  }
+  .mood-btn:hover { transform: scale(1.1); }
+  .mood-btn.sel { border-color: var(--primary); background: #eef3ff; transform: scale(1.1); }
+
+  .modal textarea {
+    width: 100%; height: 80px; border: 1px solid var(--border); border-radius: 10px;
+    padding: 10px 12px; font-size: 13px; font-family: inherit; resize: none; outline: none;
+  }
+  .modal textarea:focus { border-color: var(--primary); }
+
+  /* 诱因选项 */
+  .reason-opts { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+  .reason-opt {
+    padding: 8px 14px; border-radius: 999px; border: 1px solid var(--border);
+    background: #fff; font-size: 13px; cursor: pointer; transition: all .15s;
+  }
+  .reason-opt.sel { border-color: var(--danger); background: #fdeeee; color: var(--danger); font-weight: 600; }
+
+  /* 目标选项 */
+  .goal-opts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .goal-opt {
+    padding: 12px 0; border-radius: 10px; border: 1px solid var(--border);
+    background: #fff; font-size: 14px; cursor: pointer; text-align: center;
+  }
+  .goal-opt.sel { border-color: var(--primary); background: #eef3ff; color: var(--primary); font-weight: 700; }
+
+  /* 撒花画布 */
+  #confettiCanvas {
+    position: fixed; inset: 0; pointer-events: none; z-index: 200; display: none;
+  }
+
+  /* ===== 成就达成动效 ===== */
+  .achievement-layer {
+    position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+    z-index: 210; pointer-events: none; opacity: 0; transition: opacity .25s ease;
+  }
+  .achievement-layer.show { opacity: 1; }
+  .achievement-card {
+    position: relative; text-align: center; padding: 40px 48px;
+    background: rgba(255,255,255,.96); border-radius: 24px;
+    box-shadow: 0 20px 60px rgba(0,0,0,.25), 0 0 0 6px rgba(255,214,110,.35);
+    transform: scale(.5); transition: transform .5s cubic-bezier(.2,1.4,.3,1);
+    max-width: 320px;
+  }
+  .achievement-layer.show .achievement-card { transform: scale(1); }
+  .achievement-card::before {
+    content: ""; position: absolute; inset: -20px; border-radius: 30px;
+    background: radial-gradient(circle, rgba(255,214,110,.45), transparent 70%);
+    z-index: -1; animation: pulse 1.6s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%,100% { transform: scale(1); opacity: .7; } 50% { transform: scale(1.12); opacity: 1; } }
+  .achievement-card .a-icon { font-size: 72px; line-height: 1; animation: bounceIn .7s cubic-bezier(.2,1.4,.3,1); }
+  @keyframes bounceIn { 0% { transform: scale(0) rotate(-20deg); } 70% { transform: scale(1.2) rotate(6deg); } 100% { transform: scale(1) rotate(0); } }
+  .achievement-card .a-title {
+    margin-top: 14px; font-size: 26px; font-weight: 800;
+    background: linear-gradient(90deg, #f5a623, #ff6a00);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    letter-spacing: 2px;
+  }
+  .achievement-card .a-sub { margin-top: 8px; font-size: 14px; color: var(--text-2); line-height: 1.6; }
+  .achievement-card .a-days { margin-top: 6px; font-size: 15px; font-weight: 700; color: var(--primary); }
+  .achievement-card .a-tap {
+    margin-top: 16px; font-size: 12px; color: #b0b8c5; cursor: pointer; pointer-events: auto;
+  }
+  .achievement-card .a-tap:hover { color: var(--primary); }
+
+  @media (max-width: 480px) {
+    .ring-wrap { width: 160px; height: 160px; }
+    .ring-center .days { font-size: 52px; }
+    .stats { gap: 8px; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>戒 色 打 卡</h1>
+    <p>自律者自由 · 每一天的坚持都算数</p>
+  </header>
+
+  <!-- 主卡片 -->
+  <div class="hero">
+    <div class="label">当前已连续坚持</div>
+    <div class="ring-wrap">
+      <svg width="100%" height="100%" viewBox="0 0 190 190">
+        <circle class="ring-bg" cx="95" cy="95" r="84"/>
+        <circle class="ring-fg" id="ringFg" cx="95" cy="95" r="84"/>
+      </svg>
+      <div class="ring-center">
+        <div class="days"><span id="streakDays">0</span><small>天</small></div>
+        <div class="goal-txt" id="goalTxt">目标 30 天</div>
+      </div>
+    </div>
+    <button class="btn-goal" onclick="openGoalModal()">调整目标</button>
+    <div class="quote" id="quote">种一棵树最好的时间是十年前，其次是现在。</div>
+    <button class="btn-checkin" id="btnCheckin" onclick="openCheckinModal()">今日打卡</button>
+    <button class="btn-reset" onclick="openResetModal()">破戒了？重新开始</button>
+  </div>
+
+  <!-- 统计 -->
+  <div class="stats">
+    <div class="stat"><div class="num" id="totalDays">0</div><div class="name">累计打卡</div></div>
+    <div class="stat"><div class="num" id="bestStreak">0</div><div class="name">历史最长</div></div>
+    <div class="stat"><div class="num" id="resetCount">0</div><div class="name">重新开始</div></div>
+  </div>
+
+  <!-- 日历 -->
+  <div class="card">
+    <h2><span class="dot"></span>打卡日历</h2>
+    <div class="cal-head">
+      <button onclick="changeMonth(-1)">‹</button>
+      <div class="month" id="calMonth"></div>
+      <button onclick="changeMonth(1)">›</button>
+    </div>
+    <div class="cal-grid" id="calGrid"></div>
+  </div>
+
+  <!-- 里程碑 -->
+  <div class="card">
+    <h2><span class="dot"></span>里程碑</h2>
+    <div class="milestone-list" id="milestones"></div>
+  </div>
+
+  <!-- 诱因分析 -->
+  <div class="card" id="reasonCard" style="display:none;">
+    <h2><span class="dot"></span>破戒诱因分析</h2>
+    <div id="reasonBars"></div>
+    <div class="reason-advice" id="reasonAdvice"></div>
+  </div>
+
+  <!-- 记录 -->
+  <div class="card">
+    <h2><span class="dot"></span>最近记录</h2>
+    <div class="log-list" id="logList"></div>
+  </div>
+
+  <footer>
+    数据仅保存在本机浏览器（localStorage），不会上传。
+  </footer>
+</div>
+
+<div class="toast" id="toast"></div>
+<canvas id="confettiCanvas"></canvas>
+
+<!-- 成就达成动效层 -->
+<div class="achievement-layer" id="achievementLayer">
+  <div class="achievement-card" onclick="hideAchievement()">
+    <div class="a-icon" id="aIcon">🏆</div>
+    <div class="a-title" id="aTitle">成就达成</div>
+    <div class="a-sub" id="aSub"></div>
+    <div class="a-days" id="aDays"></div>
+    <div class="a-tap">点击关闭</div>
+  </div>
+</div>
+
+<!-- 打卡弹窗（心情 + 日记） -->
+<div class="modal-mask" id="checkinModal">
+  <div class="modal">
+    <h3>今日打卡</h3>
+    <div class="sub">现在的心情如何？也可以记录一句话</div>
+    <div class="mood-row">
+      <button class="mood-btn" data-mood="💪" onclick="selMood(this)">💪</button>
+      <button class="mood-btn" data-mood="🙂" onclick="selMood(this)">🙂</button>
+      <button class="mood-btn" data-mood="😐" onclick="selMood(this)">😐</button>
+      <button class="mood-btn" data-mood="😣" onclick="selMood(this)">😣</button>
+    </div>
+    <textarea id="checkinNote" placeholder="今天想对自己说……（可选）" maxlength="100"></textarea>
+    <div class="row">
+      <button class="cancel" onclick="closeModal('checkinModal')">取消</button>
+      <button class="confirm" onclick="doCheckin()">完成打卡</button>
+    </div>
+  </div>
+</div>
+
+<!-- 重置弹窗（诱因记录） -->
+<div class="modal-mask" id="resetModal">
+  <div class="modal">
+    <h3>确认重新开始？</h3>
+    <div class="sub">别灰心，失败是过程的一部分。<br>记录这次诱因，下次就能提前避开它：</div>
+    <div class="reason-opts" id="reasonOpts"></div>
+    <div class="row">
+      <button class="cancel" onclick="closeModal('resetModal')">再想想</button>
+      <button class="confirm danger" onclick="doReset()">确认重置</button>
+    </div>
+  </div>
+</div>
+
+<!-- 目标弹窗 -->
+<div class="modal-mask" id="goalModal">
+  <div class="modal">
+    <h3>设定阶段目标</h3>
+    <div class="sub">先定一个小目标，达成后再挑战更长的</div>
+    <div class="goal-opts" id="goalOpts"></div>
+    <div class="row">
+      <button class="cancel" onclick="closeModal('goalModal')">取消</button>
+      <button class="confirm" onclick="saveGoal()">保存目标</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const KEY = 'jiese_checkin_data_v1';
+const QUOTES = [
+  '种一棵树最好的时间是十年前，其次是现在。',
+  '自律的苦轻如鸿毛，后悔的痛重于泰山。',
+  '你战胜的不是欲望，而是那个想放弃的自己。',
+  '真正的自由，是能做自己的主人。',
+  '每一天的克制，都在重塑你的大脑。',
+  '不要因为一次跌倒，就否定走过的所有路。',
+  '欲望是海浪，你是礁石——浪会退，你还在。',
+  '专注、清醒、精力充沛，这才是你本来的样子。',
+  '熬过去，前面是更广阔的天地。',
+  '把时间投资给成长，而不是消耗给冲动。'
+];
+const MILESTONES = [
+  { days: 3,   icon: '🌱', title: '破土而出', desc: '坚持 3 天，最难的开始已经过去' },
+  { days: 7,   icon: '🌿', title: '一周之约', desc: '坚持 7 天，初步建立新习惯' },
+  { days: 14,  icon: '🍀', title: '两周进阶', desc: '坚持 14 天，意志力显著增强' },
+  { days: 21,  icon: '🌳', title: '习惯养成', desc: '坚持 21 天，行为开始自动化' },
+  { days: 30,  icon: '🏅', title: '月度勇士', desc: '坚持 30 天，整整一个月' },
+  { days: 60,  icon: '🥈', title: '两月坚守', desc: '坚持 60 天，大脑正在重塑' },
+  { days: 90,  icon: '🥇', title: '九十重生', desc: '坚持 90 天，完成一次蜕变' },
+  { days: 180, icon: '💎', title: '半年之戒', desc: '坚持 180 天，你已不再是从前的你' },
+  { days: 365, icon: '👑', title: '年度王者', desc: '坚持 365 天，整整一年的自律' }
+];
+const REASONS = ['深夜刷手机', '压力大', '无聊', '失眠', '情绪波动', '独处放纵', '其他'];
+const REASON_ADVICE = {
+  '深夜刷手机': '手机是最大诱因。建议：睡前把手机放在够不到的地方充电，或用屏幕使用时间限制。',
+  '压力大': '压力会削弱意志力。建议：用运动、冥想或倾诉替代，先处理情绪再面对冲动。',
+  '无聊': '无聊是冲动的温床。建议：提前准备一份"无聊时做什么"清单——健身、读书、出门走走。',
+  '失眠': '深夜清醒时防线最弱。建议：固定作息，睡前一小时远离屏幕，必要时听白噪音助眠。',
+  '情绪波动': '情绪低落时容易寻求即时安慰。建议：识别情绪来源，用写日记或找人聊聊来疏导。',
+  '独处放纵': '独处时需要额外警惕。建议：尽量避免长时间独自待在易触发场景，多安排外出活动。',
+  '其他': '建议回忆当时场景，在下次打卡日记里写下具体情境，找到自己的规律。'
+};
+const GOAL_PRESETS = [7, 14, 21, 30, 60, 90];
+
+function todayStr() {
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+function load() {
+  try {
+    const raw = localStorage.getItem(KEY);
+    if (raw) {
+      const d = JSON.parse(raw);
+      if (!d.goal) d.goal = 30;
+      return d;
+    }
+  } catch(e) {}
+  return { checkins: [], resets: [], best: 0, goal: 30 };
+}
+function save(d) { localStorage.setItem(KEY, JSON.stringify(d)); }
+
+let data = load();
+let calOffset = 0;
+let selMoodVal = '';
+let selReasonVal = '';
+let selGoalVal = data.goal;
+
+function dateAdd(str, n) {
+  const d = new Date(str + 'T00:00:00');
+  d.setDate(d.getDate() + n);
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+
+function calcStreak() {
+  const set = new Set(data.checkins.map(c => c.date));
+  const t = todayStr();
+  let cur = set.has(t) ? t : dateAdd(t, -1);
+  let n = 0;
+  while (set.has(cur)) { n++; cur = dateAdd(cur, -1); }
+  return n;
+}
+
+function showToast(msg, isErr) {
+  const toast = document.getElementById('toast');
+  toast.textContent = msg;
+  toast.style.background = isErr ? 'var(--danger)' : 'var(--success)';
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 2400);
+}
+
+function closeModal(id) { document.getElementById(id).classList.remove('show'); }
+
+/* ===== 渲染 ===== */
+function render() {
+  const streak = calcStreak();
+  const best = Math.max(data.best, streak);
+  if (best !== data.best) { data.best = best; save(data); }
+
+  document.getElementById('streakDays').textContent = streak;
+  document.getElementById('totalDays').textContent = data.checkins.length;
+  document.getElementById('bestStreak').textContent = data.best;
+  document.getElementById('resetCount').textContent = data.resets.length;
+
+  // 进度环
+  const goal = data.goal || 30;
+  const pct = Math.min(streak / goal, 1);
+  const R = 84, C = 2 * Math.PI * R;
+  const ring = document.getElementById('ringFg');
+  ring.setAttribute('stroke-dasharray', C);
+  ring.setAttribute('stroke-dashoffset', C * (1 - pct));
+  document.getElementById('goalTxt').textContent =
+    streak >= goal ? '🎉 目标已达成！' : '目标 ' + goal + ' 天 · ' + Math.round(pct*100) + '%';
+
+  const dayIdx = Math.floor(Date.now() / 86400000) % QUOTES.length;
+  document.getElementById('quote').textContent = QUOTES[dayIdx];
+
+  const btn = document.getElementById('btnCheckin');
+  const done = data.checkins.some(c => c.date === todayStr());
+  if (done) {
+    btn.textContent = '今日已打卡 ✓';
+    btn.classList.add('done');
+  } else {
+    btn.textContent = '今日打卡';
+    btn.classList.remove('done');
+  }
+
+  renderCalendar();
+  renderMilestones(streak);
+  renderReasons();
+  renderLogs();
+}
+
+function renderCalendar() {
+  const now = new Date();
+  const base = new Date(now.getFullYear(), now.getMonth() + calOffset, 1);
+  const y = base.getFullYear(), m = base.getMonth();
+  document.getElementById('calMonth').textContent = y + ' 年 ' + (m+1) + ' 月';
+
+  const grid = document.getElementById('calGrid');
+  grid.innerHTML = '';
+  ['一','二','三','四','五','六','日'].forEach(w => {
+    const el = document.createElement('div');
+    el.className = 'wk'; el.textContent = w;
+    grid.appendChild(el);
+  });
+
+  const firstDow = (new Date(y, m, 1).getDay() + 6) % 7;
+  const dim = new Date(y, m+1, 0).getDate();
+  const map = {};
+  data.checkins.forEach(c => map[c.date] = c);
+  const resetSet = new Set(data.resets.map(r => r.date));
+  const t = todayStr();
+
+  for (let i = 0; i < firstDow; i++) {
+    const el = document.createElement('div');
+    el.className = 'cal-cell empty';
+    grid.appendChild(el);
+  }
+  for (let d = 1; d <= dim; d++) {
+    const ds = y + '-' + String(m+1).padStart(2,'0') + '-' + String(d).padStart(2,'0');
+    const el = document.createElement('div');
+    el.className = 'cal-cell';
+    el.textContent = d;
+    if (ds === t) el.classList.add('today');
+    if (ds > t) el.classList.add('future');
+    const rec = map[ds];
+    if (rec) {
+      el.classList.add('checked');
+      if (rec.note || rec.mood) {
+        el.title = (rec.mood ? rec.mood + ' ' : '') + (rec.note || '');
+        const dot = document.createElement('span');
+        dot.className = 'note-dot';
+        el.appendChild(dot);
+      }
+    } else if (resetSet.has(ds)) {
+      el.classList.add('relapsed');
+      el.title = '这一天重新开始了';
+    }
+    grid.appendChild(el);
+  }
+}
+
+function renderMilestones(streak) {
+  const box = document.getElementById('milestones');
+  box.innerHTML = '';
+  MILESTONES.forEach(ms => {
+    const ok = streak >= ms.days || data.best >= ms.days;
+    const div = document.createElement('div');
+    div.className = 'milestone' + (ok ? ' achieved' : '');
+    div.innerHTML =
+      '<div class="badge">' + ms.icon + '</div>' +
+      '<div class="info"><div class="t">' + ms.title + '（' + ms.days + ' 天）</div>' +
+      '<div class="d">' + ms.desc + '</div></div>' +
+      '<div class="state">' + (ok ? '已达成' : '还差 ' + Math.max(ms.days - streak, 0) + ' 天') + '</div>';
+    box.appendChild(div);
+  });
+}
+
+function renderReasons() {
+  const card = document.getElementById('reasonCard');
+  const withReason = data.resets.filter(r => r.reason);
+  if (!withReason.length) { card.style.display = 'none'; return; }
+  card.style.display = '';
+
+  const counts = {};
+  withReason.forEach(r => counts[r.reason] = (counts[r.reason] || 0) + 1);
+  const entries = Object.entries(counts).sort((a,b) => b[1] - a[1]);
+  const max = entries[0][1];
+
+  const box = document.getElementById('reasonBars');
+  box.innerHTML = '';
+  entries.forEach(([name, n]) => {
+    const row = document.createElement('div');
+    row.className = 'reason-row';
+    row.innerHTML =
+      '<div class="rname">' + name + '</div>' +
+      '<div class="bar-bg"><div class="bar" style="width:' + Math.round(n/max*100) + '%"></div></div>' +
+      '<div class="rcount">' + n + ' 次</div>';
+    box.appendChild(row);
+  });
+
+  const top = entries[0][0];
+  document.getElementById('reasonAdvice').innerHTML =
+    '<strong>最高频诱因：' + top + '</strong><br>' + (REASON_ADVICE[top] || '');
+}
+
+function renderLogs() {
+  const box = document.getElementById('logList');
+  box.innerHTML = '';
+  const logs = [
+    ...data.checkins.map(c => ({ ts: c.ts, type: 'ok', text: '打卡成功', mood: c.mood, note: c.note })),
+    ...data.resets.map(r => ({ ts: r.ts, type: 'bad', text: '重新开始', reason: r.reason }))
+  ].sort((a,b) => b.ts - a.ts).slice(0, 30);
+
+  if (!logs.length) {
+    box.innerHTML = '<div class="empty-tip">还没有记录，点击上方按钮开始第一天吧</div>';
+    return;
+  }
+  logs.forEach(l => {
+    const d = new Date(l.ts);
+    const pad = n => String(n).padStart(2,'0');
+    const time = d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate()) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+    const div = document.createElement('div');
+    div.className = 'log-item';
+    let main = '<div class="time">' + time + '</div>';
+    if (l.note) main += '<div class="note">' + (l.mood ? l.mood + ' ' : '') + escapeHtml(l.note) + '</div>';
+    if (l.reason) main += '<div class="reason-txt">诱因：' + escapeHtml(l.reason) + '</div>';
+    div.innerHTML = '<div class="l-main">' + main + '</div>' +
+      '<span class="tag ' + l.type + '">' + l.text + '</span>';
+    box.appendChild(div);
+  });
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, ch =>
+    ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+}
+
+/* ===== 打卡流程 ===== */
+function openCheckinModal() {
+  if (data.checkins.some(c => c.date === todayStr())) return;
+  selMoodVal = '';
+  document.querySelectorAll('#checkinModal .mood-btn').forEach(b => b.classList.remove('sel'));
+  document.getElementById('checkinNote').value = '';
+  document.getElementById('checkinModal').classList.add('show');
+}
+function selMood(btn) {
+  document.querySelectorAll('#checkinModal .mood-btn').forEach(b => b.classList.remove('sel'));
+  btn.classList.add('sel');
+  selMoodVal = btn.dataset.mood;
+}
+function doCheckin() {
+  const t = todayStr();
+  if (data.checkins.some(c => c.date === t)) { closeModal('checkinModal'); return; }
+  const note = document.getElementById('checkinNote').value.trim();
+  const prevBest = data.best;
+  data.checkins.push({ date: t, ts: Date.now(), mood: selMoodVal, note: note });
+  save(data);
+  closeModal('checkinModal');
+  render();
+
+  const streak = calcStreak();
+  const goal = data.goal || 30;
+  const hitGoal = streak >= goal && prevBest < goal;
+  const hitMilestone = MILESTONES.find(ms => streak === ms.days && prevBest < ms.days);
+  if (hitGoal) {
+    showAchievement({
+      icon: '🎉', title: '目标达成！',
+      sub: '你完成了自己定下的挑战',
+      days: '连续坚持 ' + goal + ' 天'
+    });
+  } else if (hitMilestone) {
+    showAchievement({
+      icon: hitMilestone.icon, title: hitMilestone.title,
+      sub: hitMilestone.desc,
+      days: '连续坚持 ' + hitMilestone.days + ' 天'
+    });
+  } else {
+    showToast('打卡成功，继续保持！');
+  }
+}
+
+/* ===== 重置流程 ===== */
+function openResetModal() {
+  selReasonVal = '';
+  const box = document.getElementById('reasonOpts');
+  box.innerHTML = '';
+  REASONS.forEach(r => {
+    const b = document.createElement('button');
+    b.className = 'reason-opt';
+    b.textContent = r;
+    b.onclick = () => {
+      box.querySelectorAll('.reason-opt').forEach(x => x.classList.remove('sel'));
+      b.classList.add('sel');
+      selReasonVal = r;
+    };
+    box.appendChild(b);
+  });
+  document.getElementById('resetModal').classList.add('show');
+}
+function doReset() {
+  data.resets.push({ date: todayStr(), ts: Date.now(), reason: selReasonVal });
+  save(data);
+  closeModal('resetModal');
+  render();
+  showToast('已重新开始。站起来的你比昨天更强。');
+}
+
+/* ===== 目标设定 ===== */
+function openGoalModal() {
+  selGoalVal = data.goal || 30;
+  const box = document.getElementById('goalOpts');
+  box.innerHTML = '';
+  GOAL_PRESETS.forEach(g => {
+    const b = document.createElement('button');
+    b.className = 'goal-opt' + (g === selGoalVal ? ' sel' : '');
+    b.textContent = g + ' 天';
+    b.onclick = () => {
+      box.querySelectorAll('.goal-opt').forEach(x => x.classList.remove('sel'));
+      b.classList.add('sel');
+      selGoalVal = g;
+    };
+    box.appendChild(b);
+  });
+  document.getElementById('goalModal').classList.add('show');
+}
+function saveGoal() {
+  data.goal = selGoalVal;
+  save(data);
+  closeModal('goalModal');
+  render();
+  showToast('目标已更新为 ' + selGoalVal + ' 天');
+}
+
+/* ===== 成就达成动效 ===== */
+let achTimer = null;
+function showAchievement(o) {
+  document.getElementById('aIcon').textContent = o.icon;
+  document.getElementById('aTitle').textContent = o.title;
+  document.getElementById('aSub').textContent = o.sub;
+  document.getElementById('aDays').textContent = o.days;
+  const layer = document.getElementById('achievementLayer');
+  layer.classList.add('show');
+  fireConfetti();
+  if (achTimer) clearTimeout(achTimer);
+  achTimer = setTimeout(hideAchievement, 5000);
+}
+function hideAchievement() {
+  if (achTimer) { clearTimeout(achTimer); achTimer = null; }
+  document.getElementById('achievementLayer').classList.remove('show');
+}
+
+/* ===== 撒花动效 ===== */
+function fireConfetti() {
+  const cv = document.getElementById('confettiCanvas');
+  const ctx = cv.getContext('2d');
+  cv.width = innerWidth; cv.height = innerHeight;
+  cv.style.display = 'block';
+  const colors = ['#4f7cff','#7a5cff','#22c58b','#f5a623','#f05a5a','#ffd66e'];
+  const parts = [];
+  for (let i = 0; i < 160; i++) {
+    parts.push({
+      x: Math.random() * innerWidth,
+      y: -Math.random() * innerHeight * .4 - 20,
+      vx: (Math.random()-.5)*4,
+      vy: Math.random()*4 + 2,
+      s: Math.random()*8 + 4,
+      c: colors[Math.floor(Math.random()*colors.length)],
+      r: Math.random()*Math.PI,
+      vr: (Math.random()-.5)*.25
+    });
+  }
+  let frames = 0;
+  (function tick() {
+    ctx.clearRect(0, 0, cv.width, cv.height);
+    parts.forEach(p => {
+      p.x += p.vx; p.y += p.vy; p.vy += .12; p.r += p.vr;
+      if (p.y > cv.height + 20) { p.y = -20; p.x = Math.random()*cv.width; }
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.r);
+      ctx.fillStyle = p.c;
+      ctx.fillRect(-p.s/2, -p.s/2, p.s, p.s*.6);
+      ctx.restore();
+    });
+    if (++frames < 200) requestAnimationFrame(tick);
+    else { cv.style.display = 'none'; ctx.clearRect(0,0,cv.width,cv.height); }
+  })();
+}
+
+function changeMonth(n) { calOffset += n; renderCalendar(); }
+
+['checkinModal','resetModal','goalModal'].forEach(id => {
+  document.getElementById(id).addEventListener('click', function(e) {
+    if (e.target === this) closeModal(id);
+  });
+});
+
+render();
+</script>
+</body>
+</html>
