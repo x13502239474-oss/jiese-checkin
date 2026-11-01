@@ -256,6 +256,29 @@
   }
   .goal-opt.sel { border-color: var(--primary); background: #eef3ff; color: var(--primary); font-weight: 700; }
 
+  /* ===== 打卡成功轻量动画 ===== */
+  .checkin-pop {
+    position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0);
+    width: 150px; height: 150px; border-radius: 50%;
+    background: linear-gradient(135deg, #22c58b, #4f7cff);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    color: #fff; z-index: 205; pointer-events: none; opacity: 0;
+    box-shadow: 0 16px 48px rgba(34,197,139,.45);
+  }
+  .checkin-pop .p-icon { font-size: 48px; line-height: 1; }
+  .checkin-pop .p-text { font-size: 15px; font-weight: 700; margin-top: 6px; letter-spacing: 2px; }
+  .checkin-pop.animate { animation: popIn .7s cubic-bezier(.2,1.6,.3,1) forwards; }
+  @keyframes popIn {
+    0% { transform: translate(-50%,-50%) scale(0); opacity: 0; }
+    55% { transform: translate(-50%,-50%) scale(1.15); opacity: 1; }
+    75% { transform: translate(-50%,-50%) scale(.95); opacity: 1; }
+    100% { transform: translate(-50%,-50%) scale(1); opacity: 1; }
+  }
+  .checkin-pop.fadeout { animation: popOut .4s ease forwards; }
+  @keyframes popOut {
+    to { transform: translate(-50%,-50%) scale(1.3); opacity: 0; }
+  }
+
   /* 撒花画布 */
   #confettiCanvas {
     position: fixed; inset: 0; pointer-events: none; z-index: 200; display: none;
@@ -373,6 +396,12 @@
 
 <div class="toast" id="toast"></div>
 <canvas id="confettiCanvas"></canvas>
+
+<!-- 打卡成功轻量动画 -->
+<div class="checkin-pop" id="checkinPop">
+  <div class="p-icon">✓</div>
+  <div class="p-text">打卡成功</div>
+</div>
 
 <!-- 成就达成动效层 -->
 <div class="achievement-layer" id="achievementLayer">
@@ -709,18 +738,24 @@ function doCheckin() {
   const hitGoal = streak >= goal && prevBest < goal;
   const hitMilestone = MILESTONES.find(ms => streak === ms.days && prevBest < ms.days);
   if (hitGoal) {
+    playChime('goal');
+    showCheckinPop();
     showAchievement({
       icon: '🎉', title: '目标达成！',
       sub: '你完成了自己定下的挑战',
       days: '连续坚持 ' + goal + ' 天'
     });
   } else if (hitMilestone) {
+    playChime('milestone');
+    showCheckinPop();
     showAchievement({
       icon: hitMilestone.icon, title: hitMilestone.title,
       sub: hitMilestone.desc,
       days: '连续坚持 ' + hitMilestone.days + ' 天'
     });
   } else {
+    playChime('checkin');
+    showCheckinPop();
     showToast('打卡成功，继续保持！');
   }
 }
@@ -775,6 +810,65 @@ function saveGoal() {
   closeModal('goalModal');
   render();
   showToast('目标已更新为 ' + selGoalVal + ' 天');
+}
+
+/* ===== 打卡成功轻量动画 ===== */
+let popTimer = null;
+function showCheckinPop() {
+  const pop = document.getElementById('checkinPop');
+  pop.classList.remove('fadeout', 'animate');
+  void pop.offsetWidth; // 强制重排以重启动画
+  pop.classList.add('animate');
+  if (popTimer) clearTimeout(popTimer);
+  popTimer = setTimeout(() => {
+    pop.classList.remove('animate');
+    pop.classList.add('fadeout');
+    setTimeout(() => pop.classList.remove('fadeout'), 400);
+  }, 900);
+}
+
+/* ===== 音效（Web Audio 合成，无需外部文件） ===== */
+let audioCtx = null;
+function ensureAudio() {
+  if (!audioCtx) {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (AC) audioCtx = new AC();
+  }
+  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+  return audioCtx;
+}
+function tone(freq, start, dur, type, gain) {
+  const ctx = audioCtx;
+  const osc = ctx.createOscillator();
+  const g = ctx.createGain();
+  osc.type = type || 'sine';
+  osc.frequency.value = freq;
+  g.gain.setValueAtTime(0.0001, start);
+  g.gain.exponentialRampToValueAtTime(gain || 0.3, start + 0.02);
+  g.gain.exponentialRampToValueAtTime(0.0001, start + dur);
+  osc.connect(g); g.connect(ctx.destination);
+  osc.start(start); osc.stop(start + dur + 0.05);
+}
+function playChime(kind) {
+  const ctx = ensureAudio();
+  if (!ctx) return;
+  const t = ctx.currentTime;
+  if (kind === 'checkin') {
+    // 轻快双音「叮咚」
+    tone(880, t, 0.18, 'sine', 0.25);
+    tone(1318.5, t + 0.12, 0.25, 'sine', 0.25);
+  } else if (kind === 'milestone') {
+    // 上行三连音
+    tone(523.25, t, 0.2, 'triangle', 0.28);
+    tone(659.25, t + 0.13, 0.2, 'triangle', 0.28);
+    tone(783.99, t + 0.26, 0.35, 'triangle', 0.3);
+  } else if (kind === 'goal') {
+    // 胜利号角（更丰满）
+    [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => {
+      tone(f, t + i * 0.12, 0.35, 'triangle', 0.3);
+    });
+    tone(1046.5, t + 0.5, 0.6, 'sine', 0.22);
+  }
 }
 
 /* ===== 成就达成动效 ===== */
