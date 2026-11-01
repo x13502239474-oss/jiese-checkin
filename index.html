@@ -225,15 +225,6 @@
   .modal .confirm { background: var(--primary); color: #fff; font-weight: 600; }
   .modal .confirm.danger { background: var(--danger); }
 
-  /* 心情选择 */
-  .mood-row { display: flex; justify-content: center; gap: 14px; margin: 6px 0 14px; }
-  .mood-btn {
-    width: 52px; height: 52px; border-radius: 50%; border: 2px solid var(--border);
-    background: #fff; font-size: 24px; cursor: pointer; transition: all .15s;
-  }
-  .mood-btn:hover { transform: scale(1.1); }
-  .mood-btn.sel { border-color: var(--primary); background: #eef3ff; transform: scale(1.1); }
-
   .modal textarea {
     width: 100%; height: 80px; border: 1px solid var(--border); border-radius: 10px;
     padding: 10px 12px; font-size: 13px; font-family: inherit; resize: none; outline: none;
@@ -277,27 +268,6 @@
   .checkin-pop.fadeout { animation: popOut .4s ease forwards; }
   @keyframes popOut {
     to { transform: translate(-50%,-50%) scale(1.3); opacity: 0; }
-  }
-
-  /* ===== 拟震动：屏幕抖动 + 闪白 ===== */
-  .screen-shake { animation: shake .45s ease-in-out; }
-  @keyframes shake {
-    0%, 100% { transform: translate(0, 0); }
-    15% { transform: translate(-7px, 3px); }
-    30% { transform: translate(6px, -4px); }
-    45% { transform: translate(-5px, -2px); }
-    60% { transform: translate(5px, 3px); }
-    75% { transform: translate(-3px, 1px); }
-    90% { transform: translate(2px, -1px); }
-  }
-  .flash-overlay {
-    position: fixed; inset: 0; background: #fff; opacity: 0; pointer-events: none;
-    z-index: 204;
-  }
-  .flash-overlay.flash { animation: flashFade .5s ease-out forwards; }
-  @keyframes flashFade {
-    0% { opacity: 0.9; }
-    100% { opacity: 0; }
   }
 
   /* 撒花画布 */
@@ -418,9 +388,6 @@
 <div class="toast" id="toast"></div>
 <canvas id="confettiCanvas"></canvas>
 
-<!-- 闪白覆盖层（拟震动） -->
-<div class="flash-overlay" id="flashOverlay"></div>
-
 <!-- 打卡成功轻量动画 -->
 <div class="checkin-pop" id="checkinPop">
   <div class="p-icon">✓</div>
@@ -438,17 +405,11 @@
   </div>
 </div>
 
-<!-- 打卡弹窗（心情 + 日记） -->
+<!-- 打卡弹窗（日记） -->
 <div class="modal-mask" id="checkinModal">
   <div class="modal">
     <h3>今日打卡</h3>
-    <div class="sub">现在的心情如何？也可以记录一句话</div>
-    <div class="mood-row">
-      <button class="mood-btn" data-mood="💪" onclick="selMood(this)">💪</button>
-      <button class="mood-btn" data-mood="🙂" onclick="selMood(this)">🙂</button>
-      <button class="mood-btn" data-mood="😐" onclick="selMood(this)">😐</button>
-      <button class="mood-btn" data-mood="😣" onclick="selMood(this)">😣</button>
-    </div>
+    <div class="sub">可以记录一句话，给自己打气</div>
     <textarea id="checkinNote" placeholder="今天想对自己说……（可选）" maxlength="100"></textarea>
     <div class="row">
       <button class="cancel" onclick="closeModal('checkinModal')">取消</button>
@@ -539,7 +500,6 @@ function save(d) { localStorage.setItem(KEY, JSON.stringify(d)); }
 
 let data = load();
 let calOffset = 0;
-let selMoodVal = '';
 let selReasonVal = '';
 let selGoalVal = data.goal;
 
@@ -644,8 +604,8 @@ function renderCalendar() {
     const rec = map[ds];
     if (rec) {
       el.classList.add('checked');
-      if (rec.note || rec.mood) {
-        el.title = (rec.mood ? rec.mood + ' ' : '') + (rec.note || '');
+      if (rec.note) {
+        el.title = rec.note;
         const dot = document.createElement('span');
         dot.className = 'note-dot';
         el.appendChild(dot);
@@ -706,7 +666,7 @@ function renderLogs() {
   const box = document.getElementById('logList');
   box.innerHTML = '';
   const logs = [
-    ...data.checkins.map(c => ({ ts: c.ts, type: 'ok', text: '打卡成功', mood: c.mood, note: c.note })),
+    ...data.checkins.map(c => ({ ts: c.ts, type: 'ok', text: '打卡成功', note: c.note })),
     ...data.resets.map(r => ({ ts: r.ts, type: 'bad', text: '重新开始', reason: r.reason }))
   ].sort((a,b) => b.ts - a.ts).slice(0, 30);
 
@@ -721,7 +681,7 @@ function renderLogs() {
     const div = document.createElement('div');
     div.className = 'log-item';
     let main = '<div class="time">' + time + '</div>';
-    if (l.note) main += '<div class="note">' + (l.mood ? l.mood + ' ' : '') + escapeHtml(l.note) + '</div>';
+    if (l.note) main += '<div class="note">' + escapeHtml(l.note) + '</div>';
     if (l.reason) main += '<div class="reason-txt">诱因：' + escapeHtml(l.reason) + '</div>';
     div.innerHTML = '<div class="l-main">' + main + '</div>' +
       '<span class="tag ' + l.type + '">' + l.text + '</span>';
@@ -745,8 +705,6 @@ function handleCheckinBtn() {
 }
 function openCheckinModal() {
   if (data.checkins.some(c => c.date === todayStr())) return;
-  selMoodVal = '';
-  document.querySelectorAll('#checkinModal .mood-btn').forEach(b => b.classList.remove('sel'));
   document.getElementById('checkinNote').value = '';
   document.getElementById('checkinModal').classList.add('show');
 }
@@ -759,17 +717,12 @@ function undoCheckin() {
   render();
   showToast('已撤销今日打卡');
 }
-function selMood(btn) {
-  document.querySelectorAll('#checkinModal .mood-btn').forEach(b => b.classList.remove('sel'));
-  btn.classList.add('sel');
-  selMoodVal = btn.dataset.mood;
-}
 function doCheckin() {
   const t = todayStr();
   if (data.checkins.some(c => c.date === t)) { closeModal('checkinModal'); return; }
   const note = document.getElementById('checkinNote').value.trim();
   const prevBest = data.best;
-  data.checkins.push({ date: t, ts: Date.now(), mood: selMoodVal, note: note });
+  data.checkins.push({ date: t, ts: Date.now(), note: note });
   save(data);
   closeModal('checkinModal');
   render();
@@ -866,21 +819,6 @@ function showCheckinPop() {
     pop.classList.add('fadeout');
     setTimeout(() => pop.classList.remove('fadeout'), 400);
   }, 900);
-  shakeScreen();
-}
-// 拟震动：屏幕抖动 + 闪白（弥补 iOS 无 Vibration API 的缺憾）
-function shakeScreen() {
-  const body = document.body;
-  body.classList.remove('screen-shake');
-  void body.offsetWidth;
-  body.classList.add('screen-shake');
-  setTimeout(() => body.classList.remove('screen-shake'), 500);
-
-  const flash = document.getElementById('flashOverlay');
-  flash.classList.remove('flash');
-  void flash.offsetWidth;
-  flash.classList.add('flash');
-  setTimeout(() => flash.classList.remove('flash'), 500);
 }
 
 /* ===== 音效（Web Audio 合成，无需外部文件） ===== */
@@ -922,44 +860,92 @@ function vibrate(pattern) {
     if (navigator.vibrate) navigator.vibrate(pattern);
   } catch(e) {}
 }
+// 欢呼垫底：白噪声 + 带通，模拟人群欢呼的"沙沙"氛围
+function cheerPad(start, dur, gain) {
+  const ctx = audioCtx;
+  const len = Math.floor(ctx.sampleRate * dur);
+  const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1);
+  const src = ctx.createBufferSource();
+  src.buffer = buf;
+  const filter = ctx.createBiquadFilter();
+  filter.type = 'bandpass';
+  filter.frequency.value = 1200;
+  filter.Q.value = 0.5;
+  const g = ctx.createGain();
+  g.gain.setValueAtTime(0.0001, start);
+  g.gain.exponentialRampToValueAtTime(gain || 0.12, start + 0.15);
+  g.gain.exponentialRampToValueAtTime(0.0001, start + dur);
+  src.connect(filter); filter.connect(g); g.connect(ctx.destination);
+  src.start(start); src.stop(start + dur);
+}
+// 颤音旋律音：带轻微频率抖动，更有"人声喝彩"的鲜活感
+function cheerTone(freq, start, dur, gain) {
+  const ctx = audioCtx;
+  const osc = ctx.createOscillator();
+  const g = ctx.createGain();
+  osc.type = 'sawtooth';
+  osc.frequency.setValueAtTime(freq, start);
+  // 轻微颤音
+  const lfo = ctx.createOscillator();
+  const lfoGain = ctx.createGain();
+  lfo.frequency.value = 6;
+  lfoGain.gain.value = freq * 0.02;
+  lfo.connect(lfoGain); lfoGain.connect(osc.frequency);
+  // 低通滤波，柔化锯齿波的刺耳感
+  const lp = ctx.createBiquadFilter();
+  lp.type = 'lowpass';
+  lp.frequency.value = 3200;
+  g.gain.setValueAtTime(0.0001, start);
+  g.gain.exponentialRampToValueAtTime(gain || 0.35, start + 0.04);
+  g.gain.exponentialRampToValueAtTime(0.0001, start + dur);
+  osc.connect(lp); lp.connect(g); g.connect(ctx.destination);
+  osc.start(start); osc.stop(start + dur + 0.05);
+  lfo.start(start); lfo.stop(start + dur + 0.05);
+}
 function playChime(kind) {
   const ctx = ensureAudio();
   if (!ctx) return;
   const t = ctx.currentTime;
   if (kind === 'checkin') {
-    // 普通打卡：明亮上扬的双音，带震动
-    tone(659.25, t, 0.25, 'square', 0.5);
-    tone(1318.5, t, 0.25, 'sine', 0.25);
-    tone(880, t + 0.18, 0.4, 'square', 0.5);
-    tone(1760, t + 0.18, 0.4, 'sine', 0.25);
-    tone(440, t + 0.18, 0.4, 'triangle', 0.35);
+    // 普通打卡：上扬欢呼（约 1.2 秒）
+    cheerTone(523.25, t, 0.5, 0.4);
+    cheerTone(659.25, t + 0.15, 0.5, 0.4);
+    cheerTone(783.99, t + 0.3, 0.6, 0.42);
+    tone(1046.5, t + 0.45, 0.7, 'triangle', 0.3);
+    tone(1568, t + 0.45, 0.7, 'sine', 0.15);
+    cheerPad(t, 1.1, 0.1);
     vibrate(80);
   } else if (kind === 'milestone') {
-    // 里程碑：三段上行号角
-    [523.25, 659.25, 783.99].forEach((f, i) => {
-      const s = t + i * 0.16;
-      tone(f, s, 0.32, 'square', 0.5);
-      tone(f * 2, s, 0.32, 'sine', 0.25);
-      tone(f / 2, s, 0.32, 'triangle', 0.35);
+    // 里程碑：较长的欢呼号角（约 2 秒）
+    [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => {
+      const s = t + i * 0.2;
+      cheerTone(f, s, 0.5, 0.4);
+      tone(f * 2, s, 0.5, 'sine', 0.18);
     });
-    tone(1046.5, t + 0.48, 0.6, 'square', 0.45);
+    cheerTone(1318.5, t + 0.8, 0.9, 0.42);
+    tone(261.63, t, 1.9, 'triangle', 0.3);
+    cheerPad(t, 1.9, 0.13);
     vibrate([100, 50, 150]);
   } else if (kind === 'goal') {
-    // 目标达成：完整胜利旋律（约 2.5 秒），层层推进
+    // 目标达成：宏大欢呼（约 3 秒），层层上扬 + 和声齐鸣
     const seq = [
-      [523.25, 0], [523.25, 0.18], [659.25, 0.36], [783.99, 0.54],
-      [1046.5, 0.72], [783.99, 0.9], [1046.5, 1.08], [1318.5, 1.36]
+      [523.25, 0], [659.25, 0.16], [783.99, 0.32], [1046.5, 0.48],
+      [1046.5, 0.64], [1318.5, 0.8], [1568, 0.96], [1318.5, 1.15],
+      [1568, 1.35], [2093, 1.6]
     ];
     seq.forEach(([f, off]) => {
       const s = t + off;
-      tone(f, s, 0.3, 'square', 0.5);
-      tone(f * 2, s, 0.3, 'sine', 0.22);
-      tone(f / 2, s, 0.3, 'triangle', 0.32);
+      cheerTone(f, s, 0.4, 0.4);
+      tone(f * 2, s, 0.4, 'sine', 0.16);
+      tone(f / 2, s, 0.4, 'triangle', 0.25);
     });
-    // 结尾长音 + 低音铺垫
-    tone(1318.5, t + 1.55, 0.9, 'square', 0.5);
-    tone(261.63, t, 2.2, 'triangle', 0.38);
-    tone(329.63, t + 0.7, 1.6, 'triangle', 0.3);
+    // 收尾长鸣 + 低音铺垫
+    cheerTone(2093, t + 1.85, 1.1, 0.4);
+    tone(261.63, t, 2.8, 'triangle', 0.32);
+    tone(329.63, t + 0.6, 2.2, 'triangle', 0.26);
+    cheerPad(t, 2.9, 0.16);
     vibrate([120, 60, 120, 60, 300]);
   }
 }
