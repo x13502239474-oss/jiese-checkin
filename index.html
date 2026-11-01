@@ -809,84 +809,60 @@ function vibrate(pattern) {
     if (navigator.vibrate) navigator.vibrate(pattern);
   } catch(e) {}
 }
-// 欢呼垫底：白噪声 + 带通，模拟人群欢呼的"沙沙"氛围
-function cheerPad(start, dur, gain) {
+// 悦耳音色：单个清脆音符（三角波主音 + 高八度正弦泛音，柔和明亮）
+function note(freq, start, dur, type, gain) {
   const ctx = audioCtx;
-  const len = Math.floor(ctx.sampleRate * dur);
-  const buf = ctx.createBuffer(1, len, ctx.sampleRate);
-  const d = buf.getChannelData(0);
-  for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1);
-  const src = ctx.createBufferSource();
-  src.buffer = buf;
-  const filter = ctx.createBiquadFilter();
-  filter.type = 'bandpass';
-  filter.frequency.value = 1200;
-  filter.Q.value = 0.5;
+  const osc = ctx.createOscillator();
   const g = ctx.createGain();
+  osc.type = type || 'triangle';
+  osc.frequency.value = freq;
   g.gain.setValueAtTime(0.0001, start);
-  g.gain.exponentialRampToValueAtTime(gain || 0.12, start + 0.15);
+  g.gain.exponentialRampToValueAtTime(gain || 0.35, start + 0.02);
   g.gain.exponentialRampToValueAtTime(0.0001, start + dur);
-  src.connect(filter); filter.connect(g); g.connect(ctx.destination);
-  src.start(start); src.stop(start + dur);
+  osc.connect(g); g.connect(ctx.destination);
+  osc.start(start); osc.stop(start + dur + 0.05);
 }
-// 人声欢呼合成：用元音"啊"的共振峰（formant）+ 上扬滑音模拟"哇——"的欢呼
-function cheerVoice(start, dur, baseFreq, endFreq, gain) {
-  const ctx = audioCtx;
-  // 元音 /a/ 的共振峰（相对基频的倍数）
-  const formants = [
-    { mul: 1.0,  g: 1.0 },
-    { mul: 1.7,  g: 0.6 },
-    { mul: 2.9,  g: 0.45 },
-    { mul: 4.2,  g: 0.3 }
-  ];
-  formants.forEach(f => {
-    const osc = ctx.createOscillator();
-    const g2 = ctx.createGain();
-    osc.type = 'sawtooth';
-    const f0 = baseFreq * f.mul;
-    const f1 = endFreq * f.mul;
-    osc.frequency.setValueAtTime(f0, start);
-    osc.frequency.exponentialRampToValueAtTime(f1, start + dur);
-    // 轻微颤音（人声自然抖动）
-    const lfo = ctx.createOscillator();
-    const lfoG = ctx.createGain();
-    lfo.frequency.value = 5.5;
-    lfoG.gain.value = f0 * 0.015;
-    lfo.connect(lfoG); lfoG.connect(osc.frequency);
-    // 振幅包络：快速起音，缓慢衰减
-    g2.gain.setValueAtTime(0.0001, start);
-    g2.gain.exponentialRampToValueAtTime(gain * f.g, start + 0.06);
-    g2.gain.exponentialRampToValueAtTime(0.0001, start + dur);
-    const lp = ctx.createBiquadFilter();
-    lp.type = 'lowpass';
-    lp.frequency.value = 4000;
-    osc.connect(lp); lp.connect(g2); g2.connect(ctx.destination);
-    osc.start(start); osc.stop(start + dur + 0.05);
-    lfo.start(start); lfo.stop(start + dur + 0.05);
+// 钟琴式音符：主音 + 泛音叠加，听感像清脆的风铃/八音盒
+function bell(freq, start, dur, gain) {
+  note(freq, start, dur, 'triangle', gain);
+  note(freq * 2, start, dur, 'sine', gain * 0.35);
+  note(freq * 3, start, dur, 'sine', gain * 0.12);
+}
+// 播放一段旋律（上行琶音，悦耳上扬）
+function playArpeggio(t, notes, step, gain, baseType) {
+  notes.forEach((f, i) => {
+    const s = t + i * step;
+    bell(f, s, step * 1.6, gain);
+    note(f / 2, s, step * 1.6, 'sine', gain * 0.2); // 低八度垫底
   });
 }
 function playChime(kind) {
   const ctx = ensureAudio();
   if (!ctx) return;
   const t = ctx.currentTime;
+  // C 大调上行音阶（悦耳、有成就感）
+  const C = { C4:261.63, D4:293.66, E4:329.63, F4:349.23, G4:392.00, A4:440.00, B4:493.88, C5:523.25, D5:587.33, E5:659.25, G5:783.99, C6:1046.5 };
   if (kind === 'checkin') {
-    // 普通打卡：一声"哇——"上扬欢呼（约 1.1 秒）
-    cheerVoice(t, 1.0, 400, 720, 0.5);
-    cheerPad(t, 1.0, 0.12);
+    // 普通打卡：清脆上扬三音「叮—咚—叮」，约 0.7 秒
+    bell(C.E4, t, 0.25, 0.4);
+    bell(C.G4, t + 0.12, 0.3, 0.4);
+    bell(C.C5, t + 0.26, 0.5, 0.42);
+    note(C.C4, t, 0.7, 'sine', 0.2);
     vibrate(80);
   } else if (kind === 'milestone') {
-    // 里程碑：两声欢呼叠加上扬（约 1.8 秒）
-    cheerVoice(t, 1.5, 380, 800, 0.5);
-    cheerVoice(t + 0.25, 1.5, 450, 880, 0.4);
-    cheerPad(t, 1.8, 0.14);
+    // 里程碑：上行五音琶音 + 收尾高音，约 1.5 秒
+    playArpeggio(t, [C.C4, C.E4, C.G4, C.C5, C.E5], 0.16, 0.38);
+    bell(C.G5, t + 0.9, 0.55, 0.42);
+    note(C.C3, t, 1.5, 'sine', 0.18);
     vibrate([100, 50, 150]);
   } else if (kind === 'goal') {
-    // 目标达成：群体欢呼——多声部错峰叠加（约 3 秒）
-    cheerVoice(t, 2.6, 360, 900, 0.5);
-    cheerVoice(t + 0.15, 2.5, 420, 950, 0.42);
-    cheerVoice(t + 0.3, 2.3, 500, 1050, 0.38);
-    cheerVoice(t + 0.45, 2.0, 600, 1100, 0.32);
-    cheerPad(t, 2.9, 0.2);
+    // 目标达成：完整 C 大调上行旋律 + 华丽收尾，约 2.8 秒
+    playArpeggio(t, [C.C4, C.D4, C.E4, C.F4, C.G4, C.A4, C.B4, C.C5], 0.13, 0.4);
+    playArpeggio(t + 1.05, [C.E5, C.G5, C.C6], 0.15, 0.42);
+    bell(C.C6, t + 1.6, 1.0, 0.45); // 收尾长鸣
+    note(C.E5, t + 1.6, 1.0, 'sine', 0.2);
+    note(C.C3, t, 2.6, 'sine', 0.2); // 低音铺垫
+    note(C.G3, t + 0.6, 2.0, 'sine', 0.16);
     vibrate([120, 60, 120, 60, 300]);
   }
 }
