@@ -90,7 +90,7 @@
   }
   .btn-checkin:hover { transform: translateY(-2px); box-shadow: 0 10px 24px rgba(0,0,0,.2); }
   .btn-checkin:active { transform: scale(.97); }
-  .btn-checkin.done { background: rgba(255,255,255,.25); color: #fff; box-shadow: none; cursor: default; }
+  .btn-checkin.done { background: rgba(255,255,255,.25); color: #fff; box-shadow: none; cursor: pointer; }
 
   .btn-reset {
     display: block; margin: 16px auto 0;
@@ -348,7 +348,7 @@
     </div>
     <button class="btn-goal" onclick="openGoalModal()">调整目标</button>
     <div class="quote" id="quote">种一棵树最好的时间是十年前，其次是现在。</div>
-    <button class="btn-checkin" id="btnCheckin" onclick="openCheckinModal()">今日打卡</button>
+    <button class="btn-checkin" id="btnCheckin" onclick="handleCheckinBtn()">今日打卡</button>
     <button class="btn-reset" onclick="openResetModal()">破戒了？重新开始</button>
   </div>
 
@@ -571,7 +571,7 @@ function render() {
   const btn = document.getElementById('btnCheckin');
   const done = data.checkins.some(c => c.date === todayStr());
   if (done) {
-    btn.textContent = '今日已打卡 ✓';
+    btn.textContent = '已打卡 · 点击撤销';
     btn.classList.add('done');
   } else {
     btn.textContent = '今日打卡';
@@ -711,12 +711,29 @@ function escapeHtml(s) {
 }
 
 /* ===== 打卡流程 ===== */
+function handleCheckinBtn() {
+  ensureAudio(); // 在第一次用户手势中预热音频，规避移动端自动播放限制
+  if (data.checkins.some(c => c.date === todayStr())) {
+    undoCheckin();
+  } else {
+    openCheckinModal();
+  }
+}
 function openCheckinModal() {
   if (data.checkins.some(c => c.date === todayStr())) return;
   selMoodVal = '';
   document.querySelectorAll('#checkinModal .mood-btn').forEach(b => b.classList.remove('sel'));
   document.getElementById('checkinNote').value = '';
   document.getElementById('checkinModal').classList.add('show');
+}
+function undoCheckin() {
+  const t = todayStr();
+  const idx = data.checkins.findIndex(c => c.date === t);
+  if (idx === -1) return;
+  data.checkins.splice(idx, 1);
+  save(data);
+  render();
+  showToast('已撤销今日打卡');
 }
 function selMood(btn) {
   document.querySelectorAll('#checkinModal .mood-btn').forEach(b => b.classList.remove('sel'));
@@ -834,7 +851,17 @@ function ensureAudio() {
     const AC = window.AudioContext || window.webkitAudioContext;
     if (AC) audioCtx = new AC();
   }
-  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+  if (audioCtx && audioCtx.state === 'suspended') {
+    audioCtx.resume();
+    // 预热：播放一段几乎无声的短脉冲，确保上下文已真正激活
+    try {
+      const o = audioCtx.createOscillator();
+      const g = audioCtx.createGain();
+      g.gain.value = 0.0001;
+      o.connect(g); g.connect(audioCtx.destination);
+      o.start(); o.stop(audioCtx.currentTime + 0.001);
+    } catch(e) {}
+  }
   return audioCtx;
 }
 function tone(freq, start, dur, type, gain) {
