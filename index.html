@@ -279,6 +279,27 @@
     to { transform: translate(-50%,-50%) scale(1.3); opacity: 0; }
   }
 
+  /* ===== 拟震动：屏幕抖动 + 闪白 ===== */
+  .screen-shake { animation: shake .45s ease-in-out; }
+  @keyframes shake {
+    0%, 100% { transform: translate(0, 0); }
+    15% { transform: translate(-7px, 3px); }
+    30% { transform: translate(6px, -4px); }
+    45% { transform: translate(-5px, -2px); }
+    60% { transform: translate(5px, 3px); }
+    75% { transform: translate(-3px, 1px); }
+    90% { transform: translate(2px, -1px); }
+  }
+  .flash-overlay {
+    position: fixed; inset: 0; background: #fff; opacity: 0; pointer-events: none;
+    z-index: 204;
+  }
+  .flash-overlay.flash { animation: flashFade .5s ease-out forwards; }
+  @keyframes flashFade {
+    0% { opacity: 0.9; }
+    100% { opacity: 0; }
+  }
+
   /* 撒花画布 */
   #confettiCanvas {
     position: fixed; inset: 0; pointer-events: none; z-index: 200; display: none;
@@ -396,6 +417,9 @@
 
 <div class="toast" id="toast"></div>
 <canvas id="confettiCanvas"></canvas>
+
+<!-- 闪白覆盖层（拟震动） -->
+<div class="flash-overlay" id="flashOverlay"></div>
 
 <!-- 打卡成功轻量动画 -->
 <div class="checkin-pop" id="checkinPop">
@@ -842,6 +866,21 @@ function showCheckinPop() {
     pop.classList.add('fadeout');
     setTimeout(() => pop.classList.remove('fadeout'), 400);
   }, 900);
+  shakeScreen();
+}
+// 拟震动：屏幕抖动 + 闪白（弥补 iOS 无 Vibration API 的缺憾）
+function shakeScreen() {
+  const body = document.body;
+  body.classList.remove('screen-shake');
+  void body.offsetWidth;
+  body.classList.add('screen-shake');
+  setTimeout(() => body.classList.remove('screen-shake'), 500);
+
+  const flash = document.getElementById('flashOverlay');
+  flash.classList.remove('flash');
+  void flash.offsetWidth;
+  flash.classList.add('flash');
+  setTimeout(() => flash.classList.remove('flash'), 500);
 }
 
 /* ===== 音效（Web Audio 合成，无需外部文件） ===== */
