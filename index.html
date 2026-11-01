@@ -877,34 +877,51 @@ function tone(freq, start, dur, type, gain, freqEnd) {
   osc.connect(g); g.connect(ctx.destination);
   osc.start(start); osc.stop(start + dur + 0.05);
 }
+// 震动反馈：iOS 不支持 Vibration API 会自动忽略，安卓等支持设备触发
+function vibrate(pattern) {
+  try {
+    if (navigator.vibrate) navigator.vibrate(pattern);
+  } catch(e) {}
+}
 function playChime(kind) {
   const ctx = ensureAudio();
   if (!ctx) return;
   const t = ctx.currentTime;
   if (kind === 'checkin') {
-    // 强烈双音「叮—咚」，叠加八度与低音
-    tone(880, t, 0.2, 'square', 0.5);
-    tone(1760, t, 0.2, 'sine', 0.3);
-    tone(1318.5, t + 0.13, 0.3, 'square', 0.5);
-    tone(440, t + 0.13, 0.3, 'triangle', 0.35);
+    // 普通打卡：明亮上扬的双音，带震动
+    tone(659.25, t, 0.25, 'square', 0.5);
+    tone(1318.5, t, 0.25, 'sine', 0.25);
+    tone(880, t + 0.18, 0.4, 'square', 0.5);
+    tone(1760, t + 0.18, 0.4, 'sine', 0.25);
+    tone(440, t + 0.18, 0.4, 'triangle', 0.35);
+    vibrate(80);
   } else if (kind === 'milestone') {
-    // 上行三连音，每个音叠加低八度
+    // 里程碑：三段上行号角
     [523.25, 659.25, 783.99].forEach((f, i) => {
-      const s = t + i * 0.14;
-      tone(f, s, 0.28, 'square', 0.5);
-      tone(f * 2, s, 0.28, 'sine', 0.25);
-      tone(f / 2, s, 0.28, 'triangle', 0.35);
+      const s = t + i * 0.16;
+      tone(f, s, 0.32, 'square', 0.5);
+      tone(f * 2, s, 0.32, 'sine', 0.25);
+      tone(f / 2, s, 0.32, 'triangle', 0.35);
     });
+    tone(1046.5, t + 0.48, 0.6, 'square', 0.45);
+    vibrate([100, 50, 150]);
   } else if (kind === 'goal') {
-    // 胜利号角：四音上行 + 长尾，低音垫底
-    [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => {
-      const s = t + i * 0.12;
-      tone(f, s, 0.4, 'square', 0.5);
-      tone(f * 2, s, 0.4, 'sine', 0.25);
+    // 目标达成：完整胜利旋律（约 2.5 秒），层层推进
+    const seq = [
+      [523.25, 0], [523.25, 0.18], [659.25, 0.36], [783.99, 0.54],
+      [1046.5, 0.72], [783.99, 0.9], [1046.5, 1.08], [1318.5, 1.36]
+    ];
+    seq.forEach(([f, off]) => {
+      const s = t + off;
+      tone(f, s, 0.3, 'square', 0.5);
+      tone(f * 2, s, 0.3, 'sine', 0.22);
+      tone(f / 2, s, 0.3, 'triangle', 0.32);
     });
-    tone(261.63, t, 0.9, 'triangle', 0.4);
-    tone(1046.5, t + 0.5, 0.7, 'sine', 0.35);
-    tone(2093, t + 0.5, 0.7, 'sine', 0.2);
+    // 结尾长音 + 低音铺垫
+    tone(1318.5, t + 1.55, 0.9, 'square', 0.5);
+    tone(261.63, t, 2.2, 'triangle', 0.38);
+    tone(329.63, t + 0.7, 1.6, 'triangle', 0.3);
+    vibrate([120, 60, 120, 60, 300]);
   }
 }
 
