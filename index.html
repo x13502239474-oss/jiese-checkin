@@ -140,10 +140,6 @@
   .cal-cell.future { background: transparent; color: #cbd2dc; }
   .cal-cell.empty { background: transparent; }
   .cal-cell.relapsed { background: #fde8e8; color: var(--danger); }
-  .cal-cell .note-dot {
-    position: absolute; bottom: 3px; left: 50%; transform: translateX(-50%);
-    width: 4px; height: 4px; border-radius: 50%; background: currentColor; opacity: .8;
-  }
 
   /* ===== 里程碑 ===== */
   .milestone-list { display: flex; flex-direction: column; gap: 10px; }
@@ -188,7 +184,6 @@
   }
   .log-item .l-main { flex: 1; min-width: 0; }
   .log-item .time { color: var(--text-2); font-variant-numeric: tabular-nums; font-size: 12px; }
-  .log-item .note { margin-top: 4px; color: var(--text); line-height: 1.5; word-break: break-word; }
   .log-item .tag { font-size: 11px; padding: 2px 10px; border-radius: 999px; flex-shrink: 0; }
   .log-item .tag.ok { background: #e3f8ef; color: var(--success); }
   .log-item .tag.bad { background: #fde8e8; color: var(--danger); }
@@ -224,12 +219,6 @@
   .modal .cancel { background: #f0f2f6; color: var(--text-2); }
   .modal .confirm { background: var(--primary); color: #fff; font-weight: 600; }
   .modal .confirm.danger { background: var(--danger); }
-
-  .modal textarea {
-    width: 100%; height: 80px; border: 1px solid var(--border); border-radius: 10px;
-    padding: 10px 12px; font-size: 13px; font-family: inherit; resize: none; outline: none;
-  }
-  .modal textarea:focus { border-color: var(--primary); }
 
   /* 诱因选项 */
   .reason-opts { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
@@ -402,19 +391,6 @@
     <div class="a-sub" id="aSub"></div>
     <div class="a-days" id="aDays"></div>
     <div class="a-tap">点击关闭</div>
-  </div>
-</div>
-
-<!-- 打卡弹窗（日记） -->
-<div class="modal-mask" id="checkinModal">
-  <div class="modal">
-    <h3>今日打卡</h3>
-    <div class="sub">可以记录一句话，给自己打气</div>
-    <textarea id="checkinNote" placeholder="今天想对自己说……（可选）" maxlength="100"></textarea>
-    <div class="row">
-      <button class="cancel" onclick="closeModal('checkinModal')">取消</button>
-      <button class="confirm" onclick="doCheckin()">完成打卡</button>
-    </div>
   </div>
 </div>
 
@@ -604,12 +580,6 @@ function renderCalendar() {
     const rec = map[ds];
     if (rec) {
       el.classList.add('checked');
-      if (rec.note) {
-        el.title = rec.note;
-        const dot = document.createElement('span');
-        dot.className = 'note-dot';
-        el.appendChild(dot);
-      }
     } else if (resetSet.has(ds)) {
       el.classList.add('relapsed');
       el.title = '这一天重新开始了';
@@ -666,7 +636,7 @@ function renderLogs() {
   const box = document.getElementById('logList');
   box.innerHTML = '';
   const logs = [
-    ...data.checkins.map(c => ({ ts: c.ts, type: 'ok', text: '打卡成功', note: c.note })),
+    ...data.checkins.map(c => ({ ts: c.ts, type: 'ok', text: '打卡成功' })),
     ...data.resets.map(r => ({ ts: r.ts, type: 'bad', text: '重新开始', reason: r.reason }))
   ].sort((a,b) => b.ts - a.ts).slice(0, 30);
 
@@ -681,7 +651,6 @@ function renderLogs() {
     const div = document.createElement('div');
     div.className = 'log-item';
     let main = '<div class="time">' + time + '</div>';
-    if (l.note) main += '<div class="note">' + escapeHtml(l.note) + '</div>';
     if (l.reason) main += '<div class="reason-txt">诱因：' + escapeHtml(l.reason) + '</div>';
     div.innerHTML = '<div class="l-main">' + main + '</div>' +
       '<span class="tag ' + l.type + '">' + l.text + '</span>';
@@ -700,13 +669,8 @@ function handleCheckinBtn() {
   if (data.checkins.some(c => c.date === todayStr())) {
     undoCheckin();
   } else {
-    openCheckinModal();
+    doCheckin();
   }
-}
-function openCheckinModal() {
-  if (data.checkins.some(c => c.date === todayStr())) return;
-  document.getElementById('checkinNote').value = '';
-  document.getElementById('checkinModal').classList.add('show');
 }
 function undoCheckin() {
   const t = todayStr();
@@ -719,12 +683,10 @@ function undoCheckin() {
 }
 function doCheckin() {
   const t = todayStr();
-  if (data.checkins.some(c => c.date === t)) { closeModal('checkinModal'); return; }
-  const note = document.getElementById('checkinNote').value.trim();
+  if (data.checkins.some(c => c.date === t)) return;
   const prevBest = data.best;
-  data.checkins.push({ date: t, ts: Date.now(), note: note });
+  data.checkins.push({ date: t, ts: Date.now() });
   save(data);
-  closeModal('checkinModal');
   render();
 
   const streak = calcStreak();
@@ -841,19 +803,6 @@ function ensureAudio() {
   }
   return audioCtx;
 }
-function tone(freq, start, dur, type, gain, freqEnd) {
-  const ctx = audioCtx;
-  const osc = ctx.createOscillator();
-  const g = ctx.createGain();
-  osc.type = type || 'sine';
-  osc.frequency.setValueAtTime(freq, start);
-  if (freqEnd) osc.frequency.exponentialRampToValueAtTime(freqEnd, start + dur);
-  g.gain.setValueAtTime(0.0001, start);
-  g.gain.exponentialRampToValueAtTime(gain || 0.5, start + 0.015);
-  g.gain.exponentialRampToValueAtTime(0.0001, start + dur);
-  osc.connect(g); g.connect(ctx.destination);
-  osc.start(start); osc.stop(start + dur + 0.05);
-}
 // 震动反馈：iOS 不支持 Vibration API 会自动忽略，安卓等支持设备触发
 function vibrate(pattern) {
   try {
@@ -880,72 +829,64 @@ function cheerPad(start, dur, gain) {
   src.connect(filter); filter.connect(g); g.connect(ctx.destination);
   src.start(start); src.stop(start + dur);
 }
-// 颤音旋律音：带轻微频率抖动，更有"人声喝彩"的鲜活感
-function cheerTone(freq, start, dur, gain) {
+// 人声欢呼合成：用元音"啊"的共振峰（formant）+ 上扬滑音模拟"哇——"的欢呼
+function cheerVoice(start, dur, baseFreq, endFreq, gain) {
   const ctx = audioCtx;
-  const osc = ctx.createOscillator();
-  const g = ctx.createGain();
-  osc.type = 'sawtooth';
-  osc.frequency.setValueAtTime(freq, start);
-  // 轻微颤音
-  const lfo = ctx.createOscillator();
-  const lfoGain = ctx.createGain();
-  lfo.frequency.value = 6;
-  lfoGain.gain.value = freq * 0.02;
-  lfo.connect(lfoGain); lfoGain.connect(osc.frequency);
-  // 低通滤波，柔化锯齿波的刺耳感
-  const lp = ctx.createBiquadFilter();
-  lp.type = 'lowpass';
-  lp.frequency.value = 3200;
-  g.gain.setValueAtTime(0.0001, start);
-  g.gain.exponentialRampToValueAtTime(gain || 0.35, start + 0.04);
-  g.gain.exponentialRampToValueAtTime(0.0001, start + dur);
-  osc.connect(lp); lp.connect(g); g.connect(ctx.destination);
-  osc.start(start); osc.stop(start + dur + 0.05);
-  lfo.start(start); lfo.stop(start + dur + 0.05);
+  // 元音 /a/ 的共振峰（相对基频的倍数）
+  const formants = [
+    { mul: 1.0,  g: 1.0 },
+    { mul: 1.7,  g: 0.6 },
+    { mul: 2.9,  g: 0.45 },
+    { mul: 4.2,  g: 0.3 }
+  ];
+  formants.forEach(f => {
+    const osc = ctx.createOscillator();
+    const g2 = ctx.createGain();
+    osc.type = 'sawtooth';
+    const f0 = baseFreq * f.mul;
+    const f1 = endFreq * f.mul;
+    osc.frequency.setValueAtTime(f0, start);
+    osc.frequency.exponentialRampToValueAtTime(f1, start + dur);
+    // 轻微颤音（人声自然抖动）
+    const lfo = ctx.createOscillator();
+    const lfoG = ctx.createGain();
+    lfo.frequency.value = 5.5;
+    lfoG.gain.value = f0 * 0.015;
+    lfo.connect(lfoG); lfoG.connect(osc.frequency);
+    // 振幅包络：快速起音，缓慢衰减
+    g2.gain.setValueAtTime(0.0001, start);
+    g2.gain.exponentialRampToValueAtTime(gain * f.g, start + 0.06);
+    g2.gain.exponentialRampToValueAtTime(0.0001, start + dur);
+    const lp = ctx.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.value = 4000;
+    osc.connect(lp); lp.connect(g2); g2.connect(ctx.destination);
+    osc.start(start); osc.stop(start + dur + 0.05);
+    lfo.start(start); lfo.stop(start + dur + 0.05);
+  });
 }
 function playChime(kind) {
   const ctx = ensureAudio();
   if (!ctx) return;
   const t = ctx.currentTime;
   if (kind === 'checkin') {
-    // 普通打卡：上扬欢呼（约 1.2 秒）
-    cheerTone(523.25, t, 0.5, 0.4);
-    cheerTone(659.25, t + 0.15, 0.5, 0.4);
-    cheerTone(783.99, t + 0.3, 0.6, 0.42);
-    tone(1046.5, t + 0.45, 0.7, 'triangle', 0.3);
-    tone(1568, t + 0.45, 0.7, 'sine', 0.15);
-    cheerPad(t, 1.1, 0.1);
+    // 普通打卡：一声"哇——"上扬欢呼（约 1.1 秒）
+    cheerVoice(t, 1.0, 400, 720, 0.5);
+    cheerPad(t, 1.0, 0.12);
     vibrate(80);
   } else if (kind === 'milestone') {
-    // 里程碑：较长的欢呼号角（约 2 秒）
-    [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => {
-      const s = t + i * 0.2;
-      cheerTone(f, s, 0.5, 0.4);
-      tone(f * 2, s, 0.5, 'sine', 0.18);
-    });
-    cheerTone(1318.5, t + 0.8, 0.9, 0.42);
-    tone(261.63, t, 1.9, 'triangle', 0.3);
-    cheerPad(t, 1.9, 0.13);
+    // 里程碑：两声欢呼叠加上扬（约 1.8 秒）
+    cheerVoice(t, 1.5, 380, 800, 0.5);
+    cheerVoice(t + 0.25, 1.5, 450, 880, 0.4);
+    cheerPad(t, 1.8, 0.14);
     vibrate([100, 50, 150]);
   } else if (kind === 'goal') {
-    // 目标达成：宏大欢呼（约 3 秒），层层上扬 + 和声齐鸣
-    const seq = [
-      [523.25, 0], [659.25, 0.16], [783.99, 0.32], [1046.5, 0.48],
-      [1046.5, 0.64], [1318.5, 0.8], [1568, 0.96], [1318.5, 1.15],
-      [1568, 1.35], [2093, 1.6]
-    ];
-    seq.forEach(([f, off]) => {
-      const s = t + off;
-      cheerTone(f, s, 0.4, 0.4);
-      tone(f * 2, s, 0.4, 'sine', 0.16);
-      tone(f / 2, s, 0.4, 'triangle', 0.25);
-    });
-    // 收尾长鸣 + 低音铺垫
-    cheerTone(2093, t + 1.85, 1.1, 0.4);
-    tone(261.63, t, 2.8, 'triangle', 0.32);
-    tone(329.63, t + 0.6, 2.2, 'triangle', 0.26);
-    cheerPad(t, 2.9, 0.16);
+    // 目标达成：群体欢呼——多声部错峰叠加（约 3 秒）
+    cheerVoice(t, 2.6, 360, 900, 0.5);
+    cheerVoice(t + 0.15, 2.5, 420, 950, 0.42);
+    cheerVoice(t + 0.3, 2.3, 500, 1050, 0.38);
+    cheerVoice(t + 0.45, 2.0, 600, 1100, 0.32);
+    cheerPad(t, 2.9, 0.2);
     vibrate([120, 60, 120, 60, 300]);
   }
 }
@@ -1008,7 +949,7 @@ function fireConfetti() {
 
 function changeMonth(n) { calOffset += n; renderCalendar(); }
 
-['checkinModal','resetModal','goalModal'].forEach(id => {
+['resetModal','goalModal'].forEach(id => {
   document.getElementById(id).addEventListener('click', function(e) {
     if (e.target === this) closeModal(id);
   });
